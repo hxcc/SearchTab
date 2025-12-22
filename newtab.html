@@ -152,34 +152,34 @@
                             </div>
                         </div>
                         
-						<!-- 图标选择器 -->
-						<div id="iconSelector" style="display: none; background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-top: 8px; max-height: 220px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-							<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-								<h5 style="margin: 0; font-size: 13px;">选择图标</h5>
-								<button id="closeIconSelector" style="background: none; border: none; cursor: pointer; color: #666; font-size: 14px; padding: 2px;">
-									<i class="fas fa-times"></i>
-								</button>
-							</div>
-							
-							<!-- 图标分类标签 -->
-							<div id="iconCategories" style="display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap;">
-								<button class="icon-category-btn active" data-category="all">全部</button>
-								<button class="icon-category-btn" data-category="search">搜索</button>
-								<button class="icon-category-btn" data-category="social">社交</button>
-								<button class="icon-category-btn" data-category="brand">品牌</button>
-								<button class="icon-category-btn" data-category="tools">工具</button>
-								<button class="icon-category-btn" data-category="media">媒体</button>
-							</div>
-							
-							<!-- 图标网格 - 增加列数，让布局更紧凑 -->
-							<div id="iconGrid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;">
-								<!-- 图标会动态加载到这里 -->
-							</div>
-							
-							<div style="margin-top: 10px; text-align: center; font-size: 11px; color: #999;">
-								<i class="fas fa-info-circle"></i> 点击图标选择
-							</div>
-						</div>
+                        <!-- 图标选择器 -->
+                        <div id="iconSelector" style="display: none; background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-top: 8px; max-height: 220px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <h5 style="margin: 0; font-size: 13px;">选择图标</h5>
+                                <button id="closeIconSelector" style="background: none; border: none; cursor: pointer; color: #666; font-size: 14px; padding: 2px;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- 图标分类标签 -->
+                            <div id="iconCategories" style="display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap;">
+                                <button class="icon-category-btn active" data-category="all">全部</button>
+                                <button class="icon-category-btn" data-category="search">搜索</button>
+                                <button class="icon-category-btn" data-category="social">社交</button>
+                                <button class="icon-category-btn" data-category="brand">品牌</button>
+                                <button class="icon-category-btn" data-category="tools">工具</button>
+                                <button class="icon-category-btn" data-category="media">媒体</button>
+                            </div>
+                            
+                            <!-- 图标网格 - 增加列数，让布局更紧凑 -->
+                            <div id="iconGrid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;">
+                                <!-- 图标会动态加载到这里 -->
+                            </div>
+                            
+                            <div style="margin-top: 10px; text-align: center; font-size: 11px; color: #999;">
+                                <i class="fas fa-info-circle"></i> 点击图标选择
+                            </div>
+                        </div>
                         
                         <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                             或者手动输入FontAwesome图标类名（如：fab fa-github）
@@ -223,6 +223,18 @@
                     <div id="customSearchList" style="max-height: 200px; overflow-y: auto;">
                         <!-- 自定义搜索引擎列表将在这里显示 -->
                     </div>
+                    
+                    <!-- 添加导入导出按钮 -->
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button class="btn-secondary" id="exportSearchesBtn" style="flex: 1;">
+                            <i class="fas fa-file-export"></i> 导出配置
+                        </button>
+                        <button class="btn-secondary" id="importSearchesBtn" style="flex: 1;">
+                            <i class="fas fa-file-import"></i> 导入配置
+                        </button>
+                    </div>
+                    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+                    
                     <button class="btn-secondary" id="clearCustomSearchesBtn" style="margin-top: 10px; width: 100%; background: #f44336;">
                         <i class="fas fa-trash"></i> 清除所有自定义搜索引擎
                     </button>

@@ -174,6 +174,11 @@ const addCustomSearchBtn = document.getElementById('addCustomSearchBtn');
 const customSearchList = document.getElementById('customSearchList');
 const clearCustomSearchesBtn = document.getElementById('clearCustomSearchesBtn');
 
+// 导入导出相关的DOM元素
+const exportSearchesBtn = document.getElementById('exportSearchesBtn');
+const importSearchesBtn = document.getElementById('importSearchesBtn');
+const importFileInput = document.getElementById('importFileInput');
+
 // 初始化自定义行
 function initCustomRows() {
     // 第1行是固定的快捷按钮行
@@ -518,6 +523,21 @@ function initEventListeners() {
     addCustomSearchBtn.addEventListener('click', addCustomSearch);
     clearCustomSearchesBtn.addEventListener('click', clearCustomSearches);
     
+    // 导入导出功能
+    if (exportSearchesBtn) {
+        exportSearchesBtn.addEventListener('click', exportCustomSearches);
+    }
+    
+    if (importSearchesBtn) {
+        importSearchesBtn.addEventListener('click', () => {
+            importFileInput.click();
+        });
+    }
+    
+    if (importFileInput) {
+        importFileInput.addEventListener('change', importCustomSearches);
+    }
+    
     // 书签和历史记录按钮
     document.getElementById('bookmarksBtn').addEventListener('click', () => {
         chrome.tabs.create({ url: 'chrome://bookmarks/' });
@@ -526,6 +546,104 @@ function initEventListeners() {
     document.getElementById('historyBtn').addEventListener('click', () => {
         chrome.tabs.create({ url: 'chrome://history/' });
     });
+}
+
+// 导出自定义搜索引擎配置
+function exportCustomSearches() {
+    const exportData = {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        customSearches: customSearches,
+        rows: customRows.filter(row => row.id > 1) // 导出除第1行外的所有自定义行
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `search-tab-config-${new Date().toISOString().slice(0,10)}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+}
+
+// 导入自定义搜索配置
+function importCustomSearches(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const importData = JSON.parse(e.target.result);
+            
+            // 验证数据格式
+            if (!importData.customSearches || !Array.isArray(importData.customSearches)) {
+                throw new Error('文件格式不正确：缺少customSearches数组');
+            }
+            
+            // 检查是否需要合并或替换
+            if (customSearches.length > 0) {
+                const choice = confirm(`当前已有 ${customSearches.length} 个自定义搜索引擎。\n请选择导入方式：\n确定 = 合并导入（保留现有的）\n取消 = 替换导入（清除现有的后导入）`);
+                
+                if (!choice) {
+                    // 替换模式：先清除现有数据
+                    customSearches = [];
+                    customRows.forEach(row => {
+                        if (row.id > 1 && row.element && row.element.parentNode) {
+                            row.element.remove();
+                        }
+                    });
+                    customRows = customRows.filter(row => row.id === 1);
+                }
+            }
+            
+            // 导入行配置（如果有）
+            if (importData.rows && Array.isArray(importData.rows)) {
+                importData.rows.forEach(rowConfig => {
+                    if (rowConfig.id > 1) {
+                        createCustomRow(rowConfig.id, rowConfig.align || 'center');
+                    }
+                });
+            }
+            
+            // 导入搜索引擎
+            importData.customSearches.forEach(engine => {
+                // 确保行存在
+                ensureRowExists(engine.row, engine.align || 'center');
+                
+                // 检查是否已存在相同名称的引擎（避免重复）
+                const existingIndex = customSearches.findIndex(e => e.name === engine.name && e.url === engine.url);
+                if (existingIndex === -1) {
+                    // 确保ID唯一
+                    const uniqueEngine = {
+                        ...engine,
+                        id: 'custom_' + Date.now() + Math.random().toString(36).substr(2, 9)
+                    };
+                    customSearches.push(uniqueEngine);
+                }
+            });
+            
+            // 保存并重新渲染
+            saveCustomSearches();
+            saveRowConfig();
+            renderCustomSearchButtons();
+            renderCustomSearchList();
+            updateRowSelection();
+            
+            alert(`成功导入 ${importData.customSearches.length} 个自定义搜索引擎！`);
+            
+        } catch (error) {
+            alert('导入失败：' + error.message);
+            console.error('导入错误：', error);
+        }
+        
+        // 清空文件输入，以便再次导入同一文件
+        event.target.value = '';
+    };
+    
+    reader.readAsText(file);
 }
 
 // 使用指定搜索引擎搜索
