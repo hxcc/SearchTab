@@ -26,11 +26,17 @@ let customSearches = [];
 
 // 最大行数配置
 const MAX_ROWS = 10;
-let customRows = []; // 存储所有自定义行
+let customRows = [];
+
+// 书签相关变量
+let allBookmarks = [];
+let allFolders = [];
+let selectedBookmarks = new Set();
+let searchTimeout = null;
+let isFolderCollapsed = {};
 
 // 常用图标库
 const ICON_LIBRARY = {
-    // 搜索相关图标
     search: [
         { class: 'fas fa-search', name: '搜索' },
         { class: 'fas fa-search-plus', name: '放大搜索' },
@@ -44,7 +50,6 @@ const ICON_LIBRARY = {
         { class: 'fas fa-sliders-h', name: '滑块' }
     ],
     
-    // 社交和品牌图标
     social: [
         { class: 'fab fa-google', name: '谷歌' },
         { class: 'fab fa-baidu', name: '百度' },
@@ -63,7 +68,6 @@ const ICON_LIBRARY = {
         { class: 'fab fa-stack-overflow', name: 'Stack Overflow' }
     ],
     
-    // 品牌图标
     brand: [
         { class: 'fab fa-apple', name: '苹果' },
         { class: 'fab fa-android', name: '安卓' },
@@ -81,7 +85,6 @@ const ICON_LIBRARY = {
         { class: 'fab fa-bitcoin', name: '比特币' }
     ],
     
-    // 工具图标
     tools: [
         { class: 'fas fa-tools', name: '工具' },
         { class: 'fas fa-wrench', name: '扳手' },
@@ -100,7 +103,6 @@ const ICON_LIBRARY = {
         { class: 'fas fa-redo', name: '重做' }
     ],
     
-    // 媒体和文件图标
     media: [
         { class: 'fas fa-image', name: '图片' },
         { class: 'fas fa-photo-video', name: '照片视频' },
@@ -119,7 +121,6 @@ const ICON_LIBRARY = {
         { class: 'fas fa-save', name: '保存' }
     ],
     
-    // 其他常用图标
     other: [
         { class: 'fas fa-home', name: '首页' },
         { class: 'fas fa-globe', name: '地球' },
@@ -144,7 +145,6 @@ const ALL_ICONS = Object.values(ICON_LIBRARY).flat();
 
 // 获取默认壁纸URL
 function getDefaultWallpaperURL() {
-    // 使用插件内置的默认壁纸
     return chrome.runtime.getURL('default-wallpaper.jpg');
 }
 
@@ -152,7 +152,6 @@ function getDefaultWallpaperURL() {
 const backgroundImage = document.getElementById('backgroundImage');
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
-const searchHint = document.getElementById('searchHint');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsPanel = document.getElementById('settingsPanel');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
@@ -164,7 +163,6 @@ const wallpaperPresets = document.querySelectorAll('.wallpaper-preset');
 const resetWallpaperBtn = document.getElementById('resetWallpaperBtn');
 const clearDataBtn = document.getElementById('clearDataBtn');
 const showTimeDate = document.getElementById('showTimeDate');
-const quickButtons = document.getElementById('quickButtons');
 
 // 自定义搜索相关的DOM元素
 const customSearchName = document.getElementById('customSearchName');
@@ -173,20 +171,43 @@ const customSearchIcon = document.getElementById('customSearchIcon');
 const addCustomSearchBtn = document.getElementById('addCustomSearchBtn');
 const customSearchList = document.getElementById('customSearchList');
 const clearCustomSearchesBtn = document.getElementById('clearCustomSearchesBtn');
-
-// 导入导出相关的DOM元素
 const exportSearchesBtn = document.getElementById('exportSearchesBtn');
 const importSearchesBtn = document.getElementById('importSearchesBtn');
 const importFileInput = document.getElementById('importFileInput');
 
+// 书签相关的DOM元素
+const bookmarksPanel = document.getElementById('bookmarksPanel');
+const closeBookmarksBtn = document.getElementById('closeBookmarksBtn');
+const bookmarksOverlay = document.getElementById('bookmarksOverlay');
+const bookmarkSearchInput = document.getElementById('bookmarkSearchInput');
+const bookmarksList = document.getElementById('bookmarksList');
+const bookmarksLoading = document.getElementById('bookmarksLoading');
+const selectionInfo = document.getElementById('selectionInfo');
+const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+const newFolderBtn = document.getElementById('newFolderBtn');
+const addBookmarkBtn = document.getElementById('addBookmarkBtn');
+
+// 对话框相关元素
+const newFolderDialog = document.getElementById('newFolderDialog');
+const closeFolderDialog = document.getElementById('closeFolderDialog');
+const folderNameInput = document.getElementById('folderNameInput');
+const cancelFolderBtn = document.getElementById('cancelFolderBtn');
+const createFolderBtn = document.getElementById('createFolderBtn');
+
+const newBookmarkDialog = document.getElementById('newBookmarkDialog');
+const closeBookmarkDialog = document.getElementById('closeBookmarkDialog');
+const bookmarkNameInput = document.getElementById('bookmarkNameInput');
+const bookmarkUrlInput = document.getElementById('bookmarkUrlInput');
+const bookmarkFolderSelect = document.getElementById('bookmarkFolderSelect');
+const cancelBookmarkBtn = document.getElementById('cancelBookmarkBtn');
+const createBookmarkBtn = document.getElementById('createBookmarkBtn');
+
 // 初始化自定义行
 function initCustomRows() {
-    // 第1行是固定的快捷按钮行
     const existingRows = [
-        { id: 1, element: quickButtons, align: 'center' }
+        { id: 1, element: document.getElementById('quickButtons'), align: 'center' }
     ];
     
-    // 清除现有的自定义行（但保留第1行）
     customRows.forEach(row => {
         if (row.id > 1 && row.element && row.element.parentNode) {
             row.element.remove();
@@ -195,11 +216,9 @@ function initCustomRows() {
     
     customRows = existingRows;
     
-    // 加载保存的行数配置
     chrome.storage.sync.get(['customRows'], (result) => {
         const savedRows = result.customRows || [];
         
-        // 按行号排序后创建
         savedRows.sort((a, b) => a.id - b.id).forEach(rowConfig => {
             if (rowConfig.id > 1) {
                 createCustomRow(rowConfig.id, rowConfig.align || 'center');
@@ -208,21 +227,17 @@ function initCustomRows() {
     });
 }
 
-// 创建自定义行（修复版，确保行按顺序插入）
+// 创建自定义行
 function createCustomRow(rowId, align = 'center') {
-    // 检查是否已存在该行
     const existingRow = customRows.find(row => row.id === rowId);
     if (existingRow) return existingRow;
     
-    // 创建新行
     const rowDiv = document.createElement('div');
     rowDiv.className = `custom-buttons-row ${align}-align`;
     rowDiv.id = `customRow${rowId}`;
     
-    // 找到插入位置：按照行号顺序插入
     let insertBeforeElement = null;
     
-    // 查找第一个行号大于当前行号的行
     for (let i = 0; i < customRows.length; i++) {
         if (customRows[i].id > rowId) {
             insertBeforeElement = customRows[i].element;
@@ -230,69 +245,57 @@ function createCustomRow(rowId, align = 'center') {
         }
     }
     
+    const mainContent = document.querySelector('.main-content');
     if (insertBeforeElement) {
-        // 在找到的元素之前插入
         insertBeforeElement.parentNode.insertBefore(rowDiv, insertBeforeElement);
     } else {
-        // 如果没有找到更大的行号，插入到最后
-        // 找到最后一个元素
         const lastRow = customRows[customRows.length - 1];
         if (lastRow) {
             lastRow.element.insertAdjacentElement('afterend', rowDiv);
         } else {
-            // 如果没有自定义行，插入到第一行之后
+            const quickButtons = document.getElementById('quickButtons');
             quickButtons.insertAdjacentElement('afterend', rowDiv);
         }
     }
     
     const rowObj = { id: rowId, element: rowDiv, align };
     
-    // 将新行添加到customRows数组，并保持排序
     customRows.push(rowObj);
     customRows.sort((a, b) => a.id - b.id);
     
-    // 保存行配置
     saveRowConfig();
     
     return rowObj;
 }
 
-// 更新行选择器 - 修复版
+// 更新行选择器
 function updateRowSelection() {
     const rowSelect = document.getElementById('customSearchRow');
     const existingRowsInfo = document.getElementById('existingRowsInfo');
     
     if (!rowSelect) return;
     
-    // 保存当前选中的值
     const currentValue = rowSelect.value;
     
-    // 清空现有选项
     rowSelect.innerHTML = '';
     
-    // 获取所有有按钮的行ID（包括第1行和自定义行）
     const rowsWithButtons = new Set();
     
-    // 第1行总是有按钮（谷歌、百度、必应）
     rowsWithButtons.add(1);
     
-    // 添加所有自定义搜索引擎所在的行
     customSearches.forEach(engine => {
         rowsWithButtons.add(engine.row);
     });
     
-    // 总是显示1-10行
     for (let i = 1; i <= 10; i++) {
         const option = document.createElement('option');
         option.value = i;
         
         const hasButtons = rowsWithButtons.has(i);
-        const rowExists = customRows.some(row => row.id === i);
         
         option.textContent = i === 1 ? `第${i}行（固定按钮行）` : 
                             (hasButtons ? `第${i}行（有按钮）` : `第${i}行`);
         
-        // 如果行有按钮，用不同颜色标记
         if (hasButtons) {
             option.style.color = '#4285f4';
         }
@@ -300,14 +303,12 @@ function updateRowSelection() {
         rowSelect.appendChild(option);
     }
     
-    // 恢复之前选中的值，如果没有则选择第2行
     if (currentValue && rowSelect.querySelector(`option[value="${currentValue}"]`)) {
         rowSelect.value = currentValue;
     } else {
         rowSelect.value = '2';
     }
     
-    // 更新行信息显示
     if (existingRowsInfo) {
         const sortedRows = Array.from(rowsWithButtons).sort((a, b) => a - b);
         if (sortedRows.length > 0) {
@@ -336,41 +337,32 @@ function initIconSelector() {
     
     if (!iconInput) return;
     
-    // 点击图标输入框打开选择器
     iconInput.addEventListener('click', () => {
         iconSelector.style.display = 'block';
-        // 如果图标网格为空，初始化图标
         if (iconGrid.children.length === 0) {
             renderIconGrid('all');
         }
     });
     
-    // 关闭图标选择器
     closeIconSelector.addEventListener('click', () => {
         iconSelector.style.display = 'none';
     });
     
-    // 点击外部关闭图标选择器
     document.addEventListener('click', (e) => {
         if (iconSelector && !iconSelector.contains(e.target) && e.target !== iconInput) {
             iconSelector.style.display = 'none';
         }
     });
     
-    // 分类切换
     iconCategories.forEach(btn => {
         btn.addEventListener('click', () => {
-            // 移除所有active类
             iconCategories.forEach(b => b.classList.remove('active'));
-            // 添加active类到当前按钮
             btn.classList.add('active');
-            // 渲染对应分类的图标
             const category = btn.dataset.category;
             renderIconGrid(category);
         });
     });
     
-    // 渲染图标网格
     function renderIconGrid(category) {
         iconGrid.innerHTML = '';
         
@@ -398,14 +390,12 @@ function initIconSelector() {
         });
     }
     
-    // 手动输入图标时的预览更新
     iconInput.addEventListener('input', () => {
         const iconClass = iconInput.value.trim();
         if (iconClass) {
             try {
                 iconPreview.className = iconClass;
             } catch (e) {
-                // 如果图标类名无效，恢复默认
                 iconPreview.className = 'fas fa-search';
             }
         } else {
@@ -419,18 +409,37 @@ document.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
     updateDateTime();
     loadSettings();
-    loadCustomSearches(); // 这个函数会调用initCustomRows
+    loadCustomSearches();
+    initBookmarkEvents();
     
-    // 更新日期时间每秒钟
     setInterval(updateDateTime, 1000);
     
-    // 初始化图标选择器
     initIconSelector();
+    
+    // 添加书签对话框关闭事件
+    document.addEventListener('click', (e) => {
+        if (newBookmarkDialog.classList.contains('open') && 
+            e.target.classList.contains('dialog-overlay')) {
+            hideNewBookmarkDialog();
+        }
+    });
+    
+    // 回车键提交添加书签表单
+    bookmarkNameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            bookmarkUrlInput.focus();
+        }
+    });
+    
+    bookmarkUrlInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            createNewBookmark();
+        }
+    });
 });
 
 // 初始化事件监听器
 function initEventListeners() {
-    // 搜索相关
     searchBtn.addEventListener('click', performSearch);
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -438,7 +447,6 @@ function initEventListeners() {
         }
     });
     
-    // 快捷按钮 - 使用对应的搜索引擎搜索
     document.getElementById('quickGoogle').addEventListener('click', () => {
         searchWithEngine('google');
     });
@@ -451,7 +459,6 @@ function initEventListeners() {
         searchWithEngine('bing');
     });
     
-    // 设置面板
     settingsBtn.addEventListener('click', () => {
         settingsPanel.classList.add('open');
     });
@@ -460,7 +467,6 @@ function initEventListeners() {
         settingsPanel.classList.remove('open');
     });
     
-    // 壁纸控制
     changeWallpaperBtn.addEventListener('click', () => {
         wallpaperUpload.click();
     });
@@ -485,14 +491,12 @@ function initEventListeners() {
         });
     });
     
-    // 重置壁纸按钮 - 恢复为内置默认壁纸
     resetWallpaperBtn.addEventListener('click', () => {
         const defaultWallpaperURL = getDefaultWallpaperURL();
         backgroundImage.style.backgroundImage = `url(${defaultWallpaperURL})`;
         chrome.storage.sync.set({ wallpaper: '', customWallpaper: '' });
     });
     
-    // 默认搜索引擎设置
     document.querySelectorAll('input[name="defaultEngine"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
             chrome.storage.sync.set({ defaultEngine: e.target.value });
@@ -500,18 +504,15 @@ function initEventListeners() {
         });
     });
     
-    // 显示选项 - 只保留显示时间和日期
     showTimeDate.addEventListener('change', (e) => {
         chrome.storage.sync.set({ showTimeDate: e.target.checked });
         updateDateTimeDisplay();
     });
     
-    // 数据管理
     clearDataBtn.addEventListener('click', () => {
         if (confirm('确定要清除所有设置吗？')) {
             chrome.storage.sync.clear(() => {
                 alert('设置已清除');
-                // 重置为默认壁纸
                 const defaultWallpaperURL = getDefaultWallpaperURL();
                 backgroundImage.style.backgroundImage = `url(${defaultWallpaperURL})`;
                 location.reload();
@@ -519,11 +520,9 @@ function initEventListeners() {
         }
     });
     
-    // 自定义搜索引擎
     addCustomSearchBtn.addEventListener('click', addCustomSearch);
     clearCustomSearchesBtn.addEventListener('click', clearCustomSearches);
     
-    // 导入导出功能
     if (exportSearchesBtn) {
         exportSearchesBtn.addEventListener('click', exportCustomSearches);
     }
@@ -538,13 +537,67 @@ function initEventListeners() {
         importFileInput.addEventListener('change', importCustomSearches);
     }
     
-    // 书签和历史记录按钮
-    document.getElementById('bookmarksBtn').addEventListener('click', () => {
-        chrome.tabs.create({ url: 'chrome://bookmarks/' });
-    });
-    
     document.getElementById('historyBtn').addEventListener('click', () => {
         chrome.tabs.create({ url: 'chrome://history/' });
+    });
+}
+
+// 初始化书签事件监听器
+function initBookmarkEvents() {
+    console.log('初始化书签事件...');
+    
+    document.getElementById('bookmarksBtn').addEventListener('click', () => {
+        console.log('打开书签面板');
+        openBookmarksPanel();
+    });
+    
+    closeBookmarksBtn.addEventListener('click', closeBookmarksPanel);
+    bookmarksOverlay.addEventListener('click', closeBookmarksPanel);
+    
+    bookmarkSearchInput.addEventListener('input', handleBookmarkSearch);
+    
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', handleFilterChange);
+    });
+    
+    newFolderBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        console.log('点击新建分类按钮');
+        showNewFolderDialog();
+    });
+    
+    addBookmarkBtn.addEventListener('click', showNewBookmarkDialog);
+    
+    deleteSelectedBtn.addEventListener('click', deleteSelectedBookmarks);
+    
+    closeFolderDialog.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideNewFolderDialog();
+    });
+    
+    cancelFolderBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideNewFolderDialog();
+    });
+    
+    createFolderBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        createNewFolder();
+    });
+    
+    closeBookmarkDialog.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideNewBookmarkDialog();
+    });
+    
+    cancelBookmarkBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideNewBookmarkDialog();
+    });
+    
+    createBookmarkBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        createNewBookmark();
     });
 }
 
@@ -554,7 +607,7 @@ function exportCustomSearches() {
         version: '1.0',
         timestamp: new Date().toISOString(),
         customSearches: customSearches,
-        rows: customRows.filter(row => row.id > 1) // 导出除第1行外的所有自定义行
+        rows: customRows.filter(row => row.id > 1)
     };
     
     const dataStr = JSON.stringify(exportData, null, 2);
@@ -578,17 +631,14 @@ function importCustomSearches(event) {
         try {
             const importData = JSON.parse(e.target.result);
             
-            // 验证数据格式
             if (!importData.customSearches || !Array.isArray(importData.customSearches)) {
                 throw new Error('文件格式不正确：缺少customSearches数组');
             }
             
-            // 检查是否需要合并或替换
             if (customSearches.length > 0) {
                 const choice = confirm(`当前已有 ${customSearches.length} 个自定义搜索引擎。\n请选择导入方式：\n确定 = 合并导入（保留现有的）\n取消 = 替换导入（清除现有的后导入）`);
                 
                 if (!choice) {
-                    // 替换模式：先清除现有数据
                     customSearches = [];
                     customRows.forEach(row => {
                         if (row.id > 1 && row.element && row.element.parentNode) {
@@ -599,7 +649,6 @@ function importCustomSearches(event) {
                 }
             }
             
-            // 导入行配置（如果有）
             if (importData.rows && Array.isArray(importData.rows)) {
                 importData.rows.forEach(rowConfig => {
                     if (rowConfig.id > 1) {
@@ -608,15 +657,11 @@ function importCustomSearches(event) {
                 });
             }
             
-            // 导入搜索引擎
             importData.customSearches.forEach(engine => {
-                // 确保行存在
                 ensureRowExists(engine.row, engine.align || 'center');
                 
-                // 检查是否已存在相同名称的引擎（避免重复）
                 const existingIndex = customSearches.findIndex(e => e.name === engine.name && e.url === engine.url);
                 if (existingIndex === -1) {
-                    // 确保ID唯一
                     const uniqueEngine = {
                         ...engine,
                         id: 'custom_' + Date.now() + Math.random().toString(36).substr(2, 9)
@@ -625,7 +670,6 @@ function importCustomSearches(event) {
                 }
             });
             
-            // 保存并重新渲染
             saveCustomSearches();
             saveRowConfig();
             renderCustomSearchButtons();
@@ -639,7 +683,6 @@ function importCustomSearches(event) {
             console.error('导入错误：', error);
         }
         
-        // 清空文件输入，以便再次导入同一文件
         event.target.value = '';
     };
     
@@ -662,13 +705,11 @@ function performSearch() {
     
     let engine = SEARCH_ENGINES[currentEngine];
     
-    // 检查是否是自定义搜索引擎
     if (!engine) {
         const customEngine = customSearches.find(s => s.id === currentEngine);
         if (customEngine) {
             engine = customEngine;
         } else {
-            // 默认使用谷歌
             engine = SEARCH_ENGINES.google;
             currentEngine = 'google';
         }
@@ -676,12 +717,9 @@ function performSearch() {
     
     let searchUrl;
     
-    // 检查是否是图片搜索
     if (engine.isImageSearch && (query.startsWith('http') || query.startsWith('data:'))) {
-        // 图片搜索，直接使用查询词（应该是图片URL）
         searchUrl = engine.url.replace('{query}', encodeURIComponent(query));
     } else {
-        // 普通搜索
         searchUrl = engine.url.replace('{query}', encodeURIComponent(query));
     }
     
@@ -718,33 +756,26 @@ function updateDateTimeDisplay() {
     currentTime.style.display = show ? 'inline' : 'none';
 }
 
-// 加载设置 - 删除showQuickSites相关代码
+// 加载设置
 function loadSettings() {
     chrome.storage.sync.get(['wallpaper', 'customWallpaper', 'defaultEngine', 'showTimeDate'], (result) => {
-        // 壁纸 - 优先级：用户上传 > 预设壁纸 > 默认壁纸
         if (result.customWallpaper) {
-            // 用户上传的壁纸
             backgroundImage.style.backgroundImage = `url(${result.customWallpaper})`;
         } else if (result.wallpaper) {
-            // 预设壁纸
             backgroundImage.style.backgroundImage = `url(${result.wallpaper})`;
         } else {
-            // 使用内置默认壁纸
             const defaultWallpaperURL = getDefaultWallpaperURL();
             backgroundImage.style.backgroundImage = `url(${defaultWallpaperURL})`;
         }
         
-        // 默认搜索引擎
         if (result.defaultEngine) {
             currentEngine = result.defaultEngine;
             
-            // 更新单选按钮
             document.querySelectorAll('input[name="defaultEngine"]').forEach(radio => {
                 radio.checked = radio.value === result.defaultEngine;
             });
         }
         
-        // 只保留显示时间和日期选项
         if (result.showTimeDate !== undefined) {
             showTimeDate.checked = result.showTimeDate;
             updateDateTimeDisplay();
@@ -752,15 +783,12 @@ function loadSettings() {
     });
 }
 
-// 确保行存在（修复版）
+// 确保行存在
 function ensureRowExists(rowId, align = 'center') {
-    // 第1行总是存在
-    if (rowId === 1) return quickButtons;
+    if (rowId === 1) return document.getElementById('quickButtons');
     
-    // 检查行是否已在customRows中
     let row = customRows.find(r => r.id === rowId);
     
-    // 如果行不存在，创建它
     if (!row) {
         row = createCustomRow(rowId, align);
     }
@@ -768,7 +796,7 @@ function ensureRowExists(rowId, align = 'center') {
     return row.element;
 }
 
-// 添加自定义搜索引擎（修复版）
+// 添加自定义搜索引擎
 function addCustomSearch() {
     const name = customSearchName.value.trim();
     let url = customSearchUrl.value.trim();
@@ -781,7 +809,6 @@ function addCustomSearch() {
         return;
     }
     
-    // 替换占位符为{query}格式
     if (url.includes('%s')) {
         url = url.replace(/%s/g, '{query}');
     } else if (!url.includes('{query}')) {
@@ -789,7 +816,6 @@ function addCustomSearch() {
         return;
     }
     
-    // 确保行存在
     ensureRowExists(row, align);
     
     const id = 'custom_' + Date.now();
@@ -808,15 +834,12 @@ function addCustomSearch() {
     renderCustomSearchButtons();
     renderCustomSearchList();
     
-    // 更新行选择器
     updateRowSelection();
     
-    // 清空表单
     customSearchName.value = '';
     customSearchUrl.value = '';
     customSearchIcon.value = '';
     
-    // 重置图标预览
     const iconPreview = document.getElementById('iconPreview');
     if (iconPreview) {
         iconPreview.className = 'fas fa-search';
@@ -830,17 +853,15 @@ function saveCustomSearches() {
     chrome.storage.sync.set({ customSearches: customSearches });
 }
 
-// 加载自定义搜索引擎（修复版）
+// 加载自定义搜索引擎
 function loadCustomSearches() {
     chrome.storage.sync.get(['customSearches', 'customRows'], (result) => {
         if (result.customSearches) {
             customSearches = result.customSearches;
         }
         
-        // 初始化自定义行
         initCustomRows();
         
-        // 确保所有有自定义搜索引擎的行都存在
         customSearches.forEach(engine => {
             if (engine.row > 1) {
                 const rowExists = customRows.some(row => row.id === engine.row);
@@ -850,29 +871,25 @@ function loadCustomSearches() {
             }
         });
         
-        // 重新渲染
         renderCustomSearchButtons();
         renderCustomSearchList();
         
-        // 更新行选择器
         updateRowSelection();
     });
 }
 
-// 渲染自定义搜索按钮（修复版）
+// 渲染自定义搜索按钮
 function renderCustomSearchButtons() {
-    // 清空所有行的自定义按钮
     customRows.forEach(row => {
         if (row.id > 1) {
             row.element.innerHTML = '';
         }
     });
     
-    // 清空第一行的自定义按钮
+    const quickButtons = document.getElementById('quickButtons');
     const firstRowCustomBtns = quickButtons.querySelectorAll('.custom-btn');
     firstRowCustomBtns.forEach(btn => btn.remove());
     
-    // 设置每行的对齐方式
     customRows.forEach(row => {
         if (row.id > 1) {
             row.element.className = `custom-buttons-row ${row.align}-align`;
@@ -880,7 +897,6 @@ function renderCustomSearchButtons() {
         }
     });
     
-    // 按行号分组自定义搜索引擎
     const enginesByRow = {};
     customSearches.forEach(engine => {
         if (!enginesByRow[engine.row]) {
@@ -889,19 +905,16 @@ function renderCustomSearchButtons() {
         enginesByRow[engine.row].push(engine);
     });
     
-    // 渲染每个自定义搜索引擎
     Object.keys(enginesByRow).sort((a, b) => a - b).forEach(rowId => {
         const engines = enginesByRow[rowId];
         
         engines.forEach(engine => {
             const button = createCustomSearchButton(engine);
             
-            // 添加到对应的行
             const targetRow = customRows.find(row => row.id == rowId);
             if (targetRow) {
                 targetRow.element.appendChild(button);
             } else {
-                // 如果找不到对应的行，添加到第一行
                 quickButtons.appendChild(button);
             }
         });
@@ -929,7 +942,6 @@ function createCustomSearchButton(engine) {
         }
     });
     
-    // 删除按钮事件
     const removeBtn = button.querySelector('.remove-btn');
     removeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -941,26 +953,21 @@ function createCustomSearchButton(engine) {
     return button;
 }
 
-// 移除自定义搜索引擎（修复版）
+// 移除自定义搜索引擎
 function removeCustomSearch(engineId) {
-    // 找到要删除的搜索引擎
     const engineToRemove = customSearches.find(engine => engine.id === engineId);
     if (!engineToRemove) return;
     
     const rowId = engineToRemove.row;
     
-    // 删除搜索引擎
     customSearches = customSearches.filter(engine => engine.id !== engineId);
     saveCustomSearches();
     
-    // 重新渲染
     renderCustomSearchButtons();
     renderCustomSearchList();
     
-    // 检查该行是否还有其他按钮
     const rowHasOtherButtons = customSearches.some(engine => engine.row === rowId);
     
-    // 如果该行没有其他按钮，且不是第1行，移除该行的DOM元素
     if (!rowHasOtherButtons && rowId > 1) {
         const rowIndex = customRows.findIndex(row => row.id === rowId);
         if (rowIndex !== -1) {
@@ -973,12 +980,10 @@ function removeCustomSearch(engineId) {
         }
     }
     
-    // 如果当前选中的是被删除的引擎，切换到默认引擎
     if (currentEngine === engineId) {
         currentEngine = 'google';
     }
     
-    // 更新行选择器
     updateRowSelection();
 }
 
@@ -1017,7 +1022,7 @@ function renderCustomSearchList() {
     });
 }
 
-// 清除所有自定义搜索引擎（修复版）
+// 清除所有自定义搜索引擎
 function clearCustomSearches() {
     if (customSearches.length === 0) {
         alert('没有自定义搜索引擎可清除');
@@ -1025,33 +1030,730 @@ function clearCustomSearches() {
     }
     
     if (confirm('确定要清除所有自定义搜索引擎吗？')) {
-        // 清除所有自定义搜索引擎数据
         customSearches = [];
         saveCustomSearches();
         
-        // 移除所有自定义行（第1行除外）
         customRows.forEach(row => {
             if (row.id > 1 && row.element && row.element.parentNode) {
                 row.element.remove();
             }
         });
         
-        // 重置customRows，只保留第1行
         customRows = customRows.filter(row => row.id === 1);
         saveRowConfig();
         
-        // 重新渲染
         renderCustomSearchButtons();
         renderCustomSearchList();
         
-        // 如果当前选中的是自定义引擎，切换到默认引擎
         if (currentEngine.startsWith('custom_')) {
             currentEngine = 'google';
         }
         
-        // 更新行选择器
         updateRowSelection();
         
         alert('已清除所有自定义搜索引擎');
+    }
+}
+
+// ==================== 书签功能 ====================
+
+// 打开书签面板
+function openBookmarksPanel() {
+    bookmarksPanel.classList.add('open');
+    bookmarksOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    loadBookmarks();
+}
+
+// 关闭书签面板
+function closeBookmarksPanel() {
+    bookmarksPanel.classList.remove('open');
+    bookmarksOverlay.classList.remove('active');
+    document.body.style.overflow = '';
+    
+    bookmarkSearchInput.value = '';
+    selectedBookmarks.clear();
+    updateSelectionInfo();
+}
+
+// 显示新建分类对话框
+function showNewFolderDialog() {
+    const dialogOverlay = document.createElement('div');
+    dialogOverlay.id = 'dialogOverlay';
+    dialogOverlay.className = 'dialog-overlay';
+    document.body.appendChild(dialogOverlay);
+    
+    newFolderDialog.classList.add('open');
+    folderNameInput.value = '';
+    
+    dialogOverlay.addEventListener('click', hideNewFolderDialog);
+    
+    setTimeout(() => {
+        folderNameInput.focus();
+    }, 100);
+}
+
+// 隐藏新建分类对话框
+function hideNewFolderDialog() {
+    newFolderDialog.classList.remove('open');
+    const dialogOverlay = document.getElementById('dialogOverlay');
+    if (dialogOverlay) {
+        dialogOverlay.remove();
+    }
+}
+
+// 创建新分类
+function createNewFolder() {
+    const folderName = folderNameInput.value.trim();
+    if (!folderName) {
+        alert('请输入分类名称');
+        folderNameInput.focus();
+        return;
+    }
+    
+    if (!chrome.bookmarks) {
+        alert('浏览器书签API不可用，请检查扩展权限');
+        return;
+    }
+    
+    console.log('创建分类:', folderName);
+    
+    chrome.bookmarks.create({
+        title: folderName,
+        parentId: '1'
+    }, (newFolder) => {
+        if (chrome.runtime.lastError) {
+            console.error('创建分类失败:', chrome.runtime.lastError);
+            alert('创建分类失败: ' + chrome.runtime.lastError.message);
+            return;
+        }
+        
+        console.log('分类创建成功:', newFolder);
+        hideNewFolderDialog();
+        
+        setTimeout(() => {
+            loadBookmarks();
+        }, 300);
+        
+        showToast('分类创建成功');
+    });
+}
+
+// 显示添加书签对话框
+function showNewBookmarkDialog() {
+    const dialogOverlay = document.createElement('div');
+    dialogOverlay.id = 'dialogOverlayBookmark';
+    dialogOverlay.className = 'dialog-overlay';
+    document.body.appendChild(dialogOverlay);
+    
+    newBookmarkDialog.classList.add('open');
+    bookmarkNameInput.value = '';
+    bookmarkUrlInput.value = '';
+    
+    updateBookmarkFolderSelect();
+    
+    dialogOverlay.addEventListener('click', hideNewBookmarkDialog);
+    
+    setTimeout(() => {
+        bookmarkNameInput.focus();
+    }, 100);
+}
+
+// 隐藏添加书签对话框
+function hideNewBookmarkDialog() {
+    newBookmarkDialog.classList.remove('open');
+    const dialogOverlay = document.getElementById('dialogOverlayBookmark');
+    if (dialogOverlay) {
+        dialogOverlay.remove();
+    }
+}
+
+// 更新书签文件夹选择器
+function updateBookmarkFolderSelect() {
+    bookmarkFolderSelect.innerHTML = '';
+    
+    const defaultOptions = [
+        { id: '1', title: '书签栏' },
+        { id: '2', title: '其他书签' }
+    ];
+    
+    defaultOptions.forEach(option => {
+        const opt = document.createElement('option');
+        opt.value = option.id;
+        opt.textContent = option.title;
+        bookmarkFolderSelect.appendChild(opt);
+    });
+    
+    allFolders.forEach(folder => {
+        if (folder.id !== '0' && folder.id !== '1' && folder.id !== '2') {
+            const opt = document.createElement('option');
+            opt.value = folder.id;
+            opt.textContent = folder.title;
+            bookmarkFolderSelect.appendChild(opt);
+        }
+    });
+}
+
+// 创建新书签
+function createNewBookmark() {
+    const name = bookmarkNameInput.value.trim();
+    const url = bookmarkUrlInput.value.trim();
+    const parentId = bookmarkFolderSelect.value;
+    
+    if (!name || !url) {
+        alert('请输入书签名称和URL');
+        return;
+    }
+    
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        alert('URL必须以http://或https://开头');
+        return;
+    }
+    
+    if (!chrome.bookmarks) {
+        alert('浏览器书签API不可用，请检查扩展权限');
+        return;
+    }
+    
+    console.log('创建书签:', { name, url, parentId });
+    
+    chrome.bookmarks.create({
+        title: name,
+        url: url,
+        parentId: parentId
+    }, (newBookmark) => {
+        if (chrome.runtime.lastError) {
+            console.error('创建书签失败:', chrome.runtime.lastError);
+            alert('创建书签失败: ' + chrome.runtime.lastError.message);
+            return;
+        }
+        
+        console.log('书签创建成功:', newBookmark);
+        hideNewBookmarkDialog();
+        
+        setTimeout(() => {
+            loadBookmarks();
+        }, 300);
+        
+        showToast('书签添加成功');
+    });
+}
+
+// 显示提示消息
+function showToast(message, duration = 2000) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-message';
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 9999;
+        font-size: 14px;
+        animation: slideUp 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+// 加载书签
+function loadBookmarks() {
+    const loading = document.getElementById('bookmarksLoading');
+    const bookmarksList = document.getElementById('bookmarksList');
+    
+    if (!loading || !bookmarksList) return;
+    
+    loading.style.display = 'flex';
+    bookmarksList.innerHTML = '';
+    
+    console.log('加载书签...');
+    
+    allBookmarks = [];
+    allFolders = [];
+    isFolderCollapsed = {};
+    selectedBookmarks.clear();
+    
+    // 测试书签API是否可用
+    if (!chrome.bookmarks) {
+        console.error('书签API不可用');
+        loading.style.display = 'none';
+        bookmarksList.innerHTML = `
+            <div class="no-bookmarks">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>书签API不可用</p>
+                <small>请检查扩展权限或重新加载</small>
+            </div>
+        `;
+        return;
+    }
+    
+    chrome.bookmarks.getTree((bookmarkTreeNodes) => {
+        if (chrome.runtime.lastError) {
+            console.error('获取书签失败:', chrome.runtime.lastError);
+            loading.style.display = 'none';
+            bookmarksList.innerHTML = `
+                <div class="no-bookmarks">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>加载书签失败</p>
+                    <small>错误: ${chrome.runtime.lastError.message}</small>
+                </div>
+            `;
+            return;
+        }
+        
+        console.log('原始书签树数据:', bookmarkTreeNodes);
+        
+        function traverseBookmarks(node, folderPath = '', folderId = '', folderTitle = '') {
+            if (!node) return;
+            
+            // 如果是文件夹
+            if (node.children) {
+                let currentFolderPath = folderPath;
+                let currentFolderId = folderId;
+                let currentFolderTitle = folderTitle;
+                
+                // 如果不是根节点并且有标题
+                if (node.id !== '0' && node.id !== '1' && node.id !== '2' && node.title) {
+                    currentFolderPath = folderPath ? `${folderPath} > ${node.title}` : node.title;
+                    currentFolderId = node.id;
+                    currentFolderTitle = node.title;
+                    
+                    // 添加到文件夹列表
+                    allFolders.push({
+                        id: node.id,
+                        title: node.title,
+                        path: currentFolderPath,
+                        children: []
+                    });
+                    
+                    // 默认展开状态
+                    isFolderCollapsed[node.id] = false;
+                    
+                    console.log('找到文件夹:', {id: node.id, title: node.title, parentId: node.parentId});
+                }
+                
+                // 遍历子节点
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(child => {
+                        traverseBookmarks(child, currentFolderPath, currentFolderId, currentFolderTitle);
+                    });
+                }
+            }
+            // 如果是书签
+            else if (node.url) {
+                const bookmark = {
+                    id: node.id,
+                    title: node.title || '无标题',
+                    url: node.url,
+                    dateAdded: node.dateAdded || Date.now(),
+                    folder: folderPath || '未分类',
+                    folderId: folderId || 'root',
+                    folderTitle: folderTitle || '未分类',
+                    isSelected: false
+                };
+                
+                allBookmarks.push(bookmark);
+                
+                // 添加到对应文件夹的children
+                if (folderId && folderId !== 'root') {
+                    const folder = allFolders.find(f => f.id === folderId);
+                    if (folder) {
+                        folder.children.push(bookmark);
+                    }
+                }
+            }
+        }
+        
+        // 从根节点开始遍历
+        if (bookmarkTreeNodes && bookmarkTreeNodes.length > 0) {
+            traverseBookmarks(bookmarkTreeNodes[0]);
+        }
+        
+        console.log('加载完成:', {
+            书签总数: allBookmarks.length,
+            文件夹数: allFolders.length,
+        });
+        
+        loading.style.display = 'none';
+        renderBookmarks();
+        updateSelectionInfo();
+    });
+}
+
+// 渲染书签
+function renderBookmarks(searchTerm = '') {
+    const bookmarksList = document.getElementById('bookmarksList');
+    if (!bookmarksList) return;
+    
+    bookmarksList.innerHTML = '';
+    
+    // 如果没有数据
+    if (allBookmarks.length === 0 && allFolders.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'no-bookmarks';
+        emptyDiv.innerHTML = `
+            <i class="fas fa-bookmark"></i>
+            <p>暂无书签</p>
+            <small>可以点击右上角的星标添加书签</small>
+        `;
+        bookmarksList.appendChild(emptyDiv);
+        return;
+    }
+    
+    let filteredBookmarks = [...allBookmarks];
+    let filteredFolders = [...allFolders];
+    
+    // 搜索过滤
+    if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filteredBookmarks = filteredBookmarks.filter(bookmark => 
+            bookmark.title.toLowerCase().includes(term) || 
+            bookmark.url.toLowerCase().includes(term)
+        );
+        
+        // 同时过滤文件夹
+        filteredFolders = filteredFolders.filter(folder => 
+            folder.title.toLowerCase().includes(term) ||
+            folder.children.some(bookmark => 
+                bookmark.title.toLowerCase().includes(term) || 
+                bookmark.url.toLowerCase().includes(term)
+            )
+        );
+    }
+    
+    // 获取当前筛选条件
+    const activeFilter = document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
+    
+    // 按筛选条件排序
+    if (activeFilter === 'recent') {
+        filteredBookmarks.sort((a, b) => b.dateAdded - a.dateAdded);
+    }
+    
+    // 按文件夹分组
+    const bookmarksByFolder = {};
+    
+    // 先添加所有文件夹
+    filteredFolders.forEach(folder => {
+        bookmarksByFolder[folder.id] = {
+            folderInfo: folder,
+            bookmarks: folder.children.filter(bookmark => 
+                filteredBookmarks.some(b => b.id === bookmark.id)
+            )
+        };
+    });
+    
+    // 处理未分类的书签
+    const uncategorizedBookmarks = filteredBookmarks.filter(bookmark => 
+        !bookmark.folderId || bookmark.folderId === 'root' || !allFolders.some(f => f.id === bookmark.folderId)
+    );
+    
+    if (uncategorizedBookmarks.length > 0) {
+        bookmarksByFolder['root'] = {
+            folderInfo: { id: 'root', title: '未分类', path: '未分类' },
+            bookmarks: uncategorizedBookmarks
+        };
+    }
+    
+    // 渲染每个文件夹
+    Object.values(bookmarksByFolder).forEach(({ folderInfo, bookmarks }) => {
+        if (bookmarks.length > 0 || folderInfo.id !== 'root') {
+            const folderGroup = createFolderElement(folderInfo, bookmarks);
+            bookmarksList.appendChild(folderGroup);
+        }
+    });
+    
+    // 如果没有内容
+    if (bookmarksList.children.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'no-bookmarks';
+        emptyDiv.innerHTML = `
+            <i class="fas fa-search"></i>
+            <p>${searchTerm ? '未找到匹配的书签' : '暂无书签'}</p>
+            ${searchTerm ? '<small>请尝试其他搜索词</small>' : '<small>可以点击右上角的星标添加书签</small>'}
+        `;
+        bookmarksList.appendChild(emptyDiv);
+    }
+}
+
+// 创建文件夹元素
+function createFolderElement(folderInfo, bookmarks) {
+    const folderGroup = document.createElement('div');
+    folderGroup.className = 'folder-group';
+    folderGroup.dataset.folderId = folderInfo.id;
+    
+    if (isFolderCollapsed[folderInfo.id]) {
+        folderGroup.classList.add('collapsed');
+    }
+    
+    // 检查文件夹是否全部选中
+    const folderBookmarkIds = bookmarks.map(b => b.id);
+    const allSelected = folderBookmarkIds.length > 0 && folderBookmarkIds.every(id => selectedBookmarks.has(id));
+    
+    const folderHeader = document.createElement('div');
+    folderHeader.className = 'folder-header';
+    if (allSelected) {
+        folderHeader.classList.add('selected');
+    }
+    
+    // 文件夹复选框
+    const folderCheckbox = document.createElement('div');
+    folderCheckbox.className = 'folder-checkbox';
+    if (allSelected) {
+        folderCheckbox.classList.add('checked');
+    }
+    folderCheckbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFolderSelection(folderInfo.id, bookmarks);
+    });
+    
+    const folderIcon = document.createElement('div');
+    folderIcon.className = 'folder-icon';
+    folderIcon.innerHTML = `<i class="fas fa-folder"></i>`;
+    
+    const folderInfoDiv = document.createElement('div');
+    folderInfoDiv.className = 'folder-info';
+    
+    const folderTitle = document.createElement('div');
+    folderTitle.className = 'folder-title';
+    folderTitle.textContent = folderInfo.title;
+    
+    const folderCount = document.createElement('div');
+    folderCount.className = 'folder-count';
+    folderCount.textContent = `${bookmarks.length} 个项目`;
+    
+    folderInfoDiv.appendChild(folderTitle);
+    folderInfoDiv.appendChild(folderCount);
+    
+    const folderArrow = document.createElement('div');
+    folderArrow.className = 'folder-arrow';
+    folderArrow.innerHTML = `<i class="fas fa-chevron-down"></i>`;
+    
+    folderHeader.appendChild(folderCheckbox);
+    folderHeader.appendChild(folderIcon);
+    folderHeader.appendChild(folderInfoDiv);
+    folderHeader.appendChild(folderArrow);
+    
+    // 文件夹内容
+    const folderContent = document.createElement('div');
+    folderContent.className = 'folder-content';
+    
+    // 添加书签项
+    bookmarks.forEach(bookmark => {
+        folderContent.appendChild(createBookmarkElement(bookmark));
+    });
+    
+    // 点击文件夹头部切换展开/折叠
+    folderHeader.addEventListener('click', (e) => {
+        if (!e.target.closest('.folder-checkbox')) {
+            toggleFolderCollapse(folderInfo.id);
+        }
+    });
+    
+    folderGroup.appendChild(folderHeader);
+    folderGroup.appendChild(folderContent);
+    
+    return folderGroup;
+}
+
+// 创建书签项元素
+function createBookmarkElement(bookmark) {
+    const item = document.createElement('div');
+    item.className = 'bookmark-item';
+    item.dataset.id = bookmark.id;
+    
+    if (selectedBookmarks.has(bookmark.id)) {
+        item.classList.add('selected');
+    }
+    
+    // 多选框
+    const checkbox = document.createElement('div');
+    checkbox.className = 'bookmark-checkbox';
+    if (selectedBookmarks.has(bookmark.id)) {
+        checkbox.classList.add('checked');
+    }
+    checkbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleBookmarkSelection(bookmark.id);
+    });
+    
+    // Favicon
+    const favicon = document.createElement('div');
+    favicon.className = 'bookmark-favicon';
+    
+    try {
+        const url = new URL(bookmark.url);
+        const faviconUrl = `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=32`;
+        favicon.innerHTML = `<img src="${faviconUrl}" alt="" onerror="this.style.backgroundColor='rgba(66,133,244,0.3)'; this.innerHTML='<span>${bookmark.title.charAt(0).toUpperCase()}</span>'">`;
+    } catch {
+        favicon.innerHTML = `<span>${bookmark.title.charAt(0).toUpperCase()}</span>`;
+    }
+    
+    // 书签信息
+    const info = document.createElement('div');
+    info.className = 'bookmark-info';
+    
+    const title = document.createElement('div');
+    title.className = 'bookmark-title';
+    title.textContent = bookmark.title;
+    
+    const url = document.createElement('div');
+    url.className = 'bookmark-url';
+    url.textContent = bookmark.url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+    
+    info.appendChild(title);
+    info.appendChild(url);
+    
+    // 操作按钮
+    const actions = document.createElement('div');
+    actions.className = 'bookmark-actions';
+    
+    // 删除按钮
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'bookmark-action-btn delete';
+    deleteBtn.title = '删除';
+    deleteBtn.innerHTML = `<i class="fas fa-trash"></i>`;
+    deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(`确定要删除书签"${bookmark.title}"吗？`)) {
+            deleteBookmark(bookmark.id);
+        }
+    });
+    
+    actions.appendChild(deleteBtn);
+    
+    item.appendChild(checkbox);
+    item.appendChild(favicon);
+    item.appendChild(info);
+    item.appendChild(actions);
+    
+    // 点击书签打开链接
+    item.addEventListener('click', (e) => {
+        if (!e.target.closest('.bookmark-checkbox') && !e.target.closest('.bookmark-action-btn')) {
+            window.open(bookmark.url, '_blank');
+        }
+    });
+    
+    return item;
+}
+
+// 书签搜索处理
+function handleBookmarkSearch(e) {
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        renderBookmarks(e.target.value.trim());
+    }, 300);
+}
+
+// 筛选条件变化处理
+function handleFilterChange(e) {
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    e.target.classList.add('active');
+    renderBookmarks(bookmarkSearchInput.value.trim());
+}
+
+// 切换文件夹折叠状态
+function toggleFolderCollapse(folderId) {
+    isFolderCollapsed[folderId] = !isFolderCollapsed[folderId];
+    const folderGroup = document.querySelector(`.folder-group[data-folder-id="${folderId}"]`);
+    if (folderGroup) {
+        folderGroup.classList.toggle('collapsed');
+    }
+}
+
+// 切换文件夹选择状态
+function toggleFolderSelection(folderId, bookmarks) {
+    const folderBookmarkIds = bookmarks.map(b => b.id);
+    const allSelected = folderBookmarkIds.length > 0 && folderBookmarkIds.every(id => selectedBookmarks.has(id));
+    
+    if (allSelected) {
+        // 取消选中所有书签
+        folderBookmarkIds.forEach(id => {
+            selectedBookmarks.delete(id);
+        });
+    } else {
+        // 选中所有书签
+        folderBookmarkIds.forEach(id => {
+            selectedBookmarks.add(id);
+        });
+    }
+    
+    renderBookmarks(bookmarkSearchInput.value.trim());
+    updateSelectionInfo();
+}
+
+// 切换书签选择状态
+function toggleBookmarkSelection(bookmarkId) {
+    if (selectedBookmarks.has(bookmarkId)) {
+        selectedBookmarks.delete(bookmarkId);
+    } else {
+        selectedBookmarks.add(bookmarkId);
+    }
+    
+    const bookmarkItem = document.querySelector(`.bookmark-item[data-id="${bookmarkId}"]`);
+    if (bookmarkItem) {
+        const checkbox = bookmarkItem.querySelector('.bookmark-checkbox');
+        if (checkbox) {
+            checkbox.classList.toggle('checked', selectedBookmarks.has(bookmarkId));
+        }
+        bookmarkItem.classList.toggle('selected', selectedBookmarks.has(bookmarkId));
+    }
+    
+    updateSelectionInfo();
+}
+
+// 更新选择信息
+function updateSelectionInfo() {
+    const count = selectedBookmarks.size;
+    // 直接显示选中数量，不为0时才显示"已选择 X 个项目"
+    selectionInfo.textContent = count > 0 ? `已选择 ${count} 个项目` : '';
+    deleteSelectedBtn.disabled = count === 0;
+}
+
+// 删除单个书签
+function deleteBookmark(bookmarkId) {
+    chrome.bookmarks.remove(bookmarkId, () => {
+        allBookmarks = allBookmarks.filter(b => b.id !== bookmarkId);
+        
+        allFolders.forEach(folder => {
+            folder.children = folder.children.filter(b => b.id !== bookmarkId);
+        });
+        
+        selectedBookmarks.delete(bookmarkId);
+        
+        renderBookmarks(bookmarkSearchInput.value.trim());
+        updateSelectionInfo();
+    });
+}
+
+// 删除选中的书签
+function deleteSelectedBookmarks() {
+    if (selectedBookmarks.size === 0) {
+        alert('请先选择要删除的书签');
+        return;
+    }
+    
+    if (confirm(`确定要删除选中的 ${selectedBookmarks.size} 个书签吗？`)) {
+        selectedBookmarks.forEach(bookmarkId => {
+            chrome.bookmarks.remove(bookmarkId);
+        });
+        
+        selectedBookmarks.clear();
+        setTimeout(() => {
+            loadBookmarks();
+            updateSelectionInfo();
+        }, 500);
     }
 }

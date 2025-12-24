@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Search Tab",
-  "version": "1.0",
+  "version": "3.0",
   "description": "仿谷歌首页的新标签页，集成多种搜索引擎和壁纸自定义功能",
   "icons": {
     "16": "icons/icon16.png",
@@ -12,7 +12,8 @@
     "newtab": "newtab.html"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "bookmarks"
   ],
   "web_accessible_resources": [
     {
