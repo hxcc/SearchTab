@@ -32,6 +32,7 @@ let customRows = [];
 let allBookmarks = [];
 let allFolders = [];
 let selectedBookmarks = new Set();
+let selectedFolders = new Set();  // 新增：跟踪选中的空文件夹
 let searchTimeout = null;
 let isFolderCollapsed = {};
 
@@ -1074,6 +1075,7 @@ function closeBookmarksPanel() {
     
     bookmarkSearchInput.value = '';
     selectedBookmarks.clear();
+    selectedFolders.clear();  // 清空选中的文件夹
     updateSelectionInfo();
 }
 
@@ -1281,8 +1283,9 @@ function loadBookmarks() {
     
     allBookmarks = [];
     allFolders = [];
-    isFolderCollapsed = {};
     selectedBookmarks.clear();
+    selectedFolders.clear();  // 清空选中的文件夹
+    isFolderCollapsed = {};
     
     // 测试书签API是否可用
     if (!chrome.bookmarks) {
@@ -1440,38 +1443,32 @@ function renderBookmarks(searchTerm = '') {
         filteredBookmarks.sort((a, b) => b.dateAdded - a.dateAdded);
     }
     
-    // 按文件夹分组
-    const bookmarksByFolder = {};
-    
-    // 先添加所有文件夹
+    // 渲染所有文件夹（包括空文件夹）
     filteredFolders.forEach(folder => {
-        bookmarksByFolder[folder.id] = {
-            folderInfo: folder,
-            bookmarks: folder.children.filter(bookmark => 
-                filteredBookmarks.some(b => b.id === bookmark.id)
-            )
-        };
+        // 获取该文件夹下的书签
+        const folderBookmarks = filteredBookmarks.filter(bookmark => 
+            bookmark.folderId === folder.id
+        );
+        
+        // 创建文件夹元素（即使没有书签也创建）
+        const folderGroup = createFolderElement(folder, folderBookmarks);
+        bookmarksList.appendChild(folderGroup);
     });
     
-    // 处理未分类的书签
+    // 处理未分类的书签（没有文件夹的书签）
     const uncategorizedBookmarks = filteredBookmarks.filter(bookmark => 
         !bookmark.folderId || bookmark.folderId === 'root' || !allFolders.some(f => f.id === bookmark.folderId)
     );
     
     if (uncategorizedBookmarks.length > 0) {
-        bookmarksByFolder['root'] = {
-            folderInfo: { id: 'root', title: '未分类', path: '未分类' },
-            bookmarks: uncategorizedBookmarks
+        const rootFolder = {
+            id: 'root',
+            title: '未分类',
+            path: '未分类'
         };
+        const folderGroup = createFolderElement(rootFolder, uncategorizedBookmarks);
+        bookmarksList.appendChild(folderGroup);
     }
-    
-    // 渲染每个文件夹
-    Object.values(bookmarksByFolder).forEach(({ folderInfo, bookmarks }) => {
-        if (bookmarks.length > 0 || folderInfo.id !== 'root') {
-            const folderGroup = createFolderElement(folderInfo, bookmarks);
-            bookmarksList.appendChild(folderGroup);
-        }
-    });
     
     // 如果没有内容
     if (bookmarksList.children.length === 0) {
@@ -1500,16 +1497,19 @@ function createFolderElement(folderInfo, bookmarks) {
     const folderBookmarkIds = bookmarks.map(b => b.id);
     const allSelected = folderBookmarkIds.length > 0 && folderBookmarkIds.every(id => selectedBookmarks.has(id));
     
+    // 检查空文件夹是否被选中
+    const folderSelected = selectedFolders.has(folderInfo.id);
+    
     const folderHeader = document.createElement('div');
     folderHeader.className = 'folder-header';
-    if (allSelected) {
+    if (allSelected || folderSelected) {
         folderHeader.classList.add('selected');
     }
     
     // 文件夹复选框
     const folderCheckbox = document.createElement('div');
     folderCheckbox.className = 'folder-checkbox';
-    if (allSelected) {
+    if (allSelected || folderSelected) {
         folderCheckbox.classList.add('checked');
     }
     folderCheckbox.addEventListener('click', (e) => {
@@ -1675,19 +1675,30 @@ function toggleFolderCollapse(folderId) {
 
 // 切换文件夹选择状态
 function toggleFolderSelection(folderId, bookmarks) {
-    const folderBookmarkIds = bookmarks.map(b => b.id);
-    const allSelected = folderBookmarkIds.length > 0 && folderBookmarkIds.every(id => selectedBookmarks.has(id));
-    
-    if (allSelected) {
-        // 取消选中所有书签
-        folderBookmarkIds.forEach(id => {
-            selectedBookmarks.delete(id);
-        });
+    // 检查是否为空文件夹
+    if (bookmarks.length === 0) {
+        // 空文件夹：直接切换文件夹本身的选中状态
+        if (selectedFolders.has(folderId)) {
+            selectedFolders.delete(folderId);
+        } else {
+            selectedFolders.add(folderId);
+        }
     } else {
-        // 选中所有书签
-        folderBookmarkIds.forEach(id => {
-            selectedBookmarks.add(id);
-        });
+        // 非空文件夹：切换文件夹内所有书签的选中状态
+        const folderBookmarkIds = bookmarks.map(b => b.id);
+        const allSelected = folderBookmarkIds.length > 0 && folderBookmarkIds.every(id => selectedBookmarks.has(id));
+        
+        if (allSelected) {
+            // 取消选中所有书签
+            folderBookmarkIds.forEach(id => {
+                selectedBookmarks.delete(id);
+            });
+        } else {
+            // 选中所有书签
+            folderBookmarkIds.forEach(id => {
+                selectedBookmarks.add(id);
+            });
+        }
     }
     
     renderBookmarks(bookmarkSearchInput.value.trim());
@@ -1716,10 +1727,13 @@ function toggleBookmarkSelection(bookmarkId) {
 
 // 更新选择信息
 function updateSelectionInfo() {
-    const count = selectedBookmarks.size;
+    const bookmarkCount = selectedBookmarks.size;
+    const folderCount = selectedFolders.size;
+    const totalCount = bookmarkCount + folderCount;
+    
     // 直接显示选中数量，不为0时才显示"已选择 X 个项目"
-    selectionInfo.textContent = count > 0 ? `已选择 ${count} 个项目` : '';
-    deleteSelectedBtn.disabled = count === 0;
+    selectionInfo.textContent = totalCount > 0 ? `已选择 ${totalCount} 个项目` : '';
+    deleteSelectedBtn.disabled = totalCount === 0;
 }
 
 // 删除单个书签
@@ -1738,19 +1752,42 @@ function deleteBookmark(bookmarkId) {
     });
 }
 
-// 删除选中的书签
+// 删除选中的书签和文件夹
 function deleteSelectedBookmarks() {
-    if (selectedBookmarks.size === 0) {
-        alert('请先选择要删除的书签');
+    const bookmarkCount = selectedBookmarks.size;
+    const folderCount = selectedFolders.size;
+    
+    if (bookmarkCount === 0 && folderCount === 0) {
+        alert('请先选择要删除的书签或文件夹');
         return;
     }
     
-    if (confirm(`确定要删除选中的 ${selectedBookmarks.size} 个书签吗？`)) {
+    let message = '确定要删除选中的';
+    if (bookmarkCount > 0 && folderCount > 0) {
+        message += ` ${bookmarkCount} 个书签和 ${folderCount} 个文件夹吗？`;
+    } else if (bookmarkCount > 0) {
+        message += ` ${bookmarkCount} 个书签吗？`;
+    } else {
+        message += ` ${folderCount} 个文件夹吗？`;
+    }
+    
+    if (confirm(message)) {
+        // 先删除选中的书签
         selectedBookmarks.forEach(bookmarkId => {
             chrome.bookmarks.remove(bookmarkId);
         });
         
+        // 再删除选中的文件夹
+        selectedFolders.forEach(folderId => {
+            // 注意：chrome.bookmarks.removeTree 会删除文件夹及其所有内容
+            chrome.bookmarks.removeTree(folderId);
+        });
+        
+        // 清空选中集合
         selectedBookmarks.clear();
+        selectedFolders.clear();
+        
+        // 重新加载书签
         setTimeout(() => {
             loadBookmarks();
             updateSelectionInfo();
