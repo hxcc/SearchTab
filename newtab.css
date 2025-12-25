@@ -891,144 +891,6 @@ input::placeholder {
     margin-top: 0;
 }
 
-/* ==================== 响应式设计 ==================== */
-
-@media (max-width: 768px) {
-    .logo-text {
-        font-size: 48px;
-    }
-    
-    .tagline {
-        font-size: 16px;
-    }
-    
-    .search-container {
-        max-width: 600px;
-    }
-    
-    .search-box {
-        height: 56px;
-        padding: 0 16px;
-    }
-    
-    .search-input {
-        font-size: 18px !important;
-        line-height: 56px !important;
-        height: 100% !important;
-    }
-    
-    .search-input::placeholder {
-        font-size: 18px !important;
-    }
-    
-    .search-icon {
-        font-size: 18px;
-        margin-right: 12px;
-    }
-    
-    .search-btn {
-        width: 46px;
-        height: 46px;
-        font-size: 18px;
-    }
-    
-    .quick-buttons, .custom-buttons-row {
-        gap: 10px;
-    }
-    
-    .quick-btn, .custom-btn {
-        padding: 10px 20px;
-        font-size: 14px;
-    }
-    
-    .settings-panel {
-        width: 320px;
-        right: -320px;
-    }
-    
-    .settings-header h3 {
-        font-size: 15px;
-    }
-}
-
-@media (max-width: 480px) {
-    .logo-text {
-        font-size: 36px;
-    }
-    
-    .tagline {
-        font-size: 16px;
-    }
-    
-    .top-btn {
-        padding: 6px 12px;
-        font-size: 12px;
-    }
-    
-    .wallpaper-control {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .wallpaper-presets {
-        margin-top: 5px;
-    }
-    
-    .search-container {
-        max-width: 100%;
-    }
-    
-    .search-box {
-        height: 52px;
-        padding: 0 14px;
-    }
-    
-    .search-input {
-        font-size: 16px !important;
-        line-height: 52px !important;
-        height: 100% !important;
-    }
-    
-    .search-input::placeholder {
-        font-size: 16px !important;
-    }
-    
-    .search-icon {
-        font-size: 16px;
-        margin-right: 10px;
-    }
-    
-    .search-btn {
-        width: 44px;
-        height: 44px;
-        font-size: 16px;
-        margin-left: 8px;
-    }
-    
-    .quick-buttons, .custom-buttons-row {
-        justify-content: center;
-        gap: 8px;
-    }
-    
-    .quick-btn, .custom-btn {
-        padding: 8px 16px;
-        font-size: 13px;
-    }
-    
-    .settings-panel {
-        width: 280px;
-        right: -280px;
-    }
-    
-    .settings-header {
-        padding: 12px 15px;
-    }
-    
-    .settings-content {
-        padding: 10px;
-    }
-}
-
 /* ==================== 书签面板 ==================== */
 
 .bookmarks-panel {
@@ -1680,7 +1542,117 @@ input::placeholder {
     to { opacity: 1; }
 }
 
+/* ==================== 修复下拉菜单背景色 ==================== */
+
+/* 修复书签对话框中的下拉菜单背景色 */
+#bookmarkFolderSelect {
+    background-color: rgba(40, 45, 55, 0.95) !important;
+    color: #fff !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%238ab4f8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+    background-position: right 0.5rem center !important;
+    background-repeat: no-repeat !important;
+    background-size: 1.5em 1.5em !important;
+    padding-right: 2.5rem !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+#bookmarkFolderSelect option {
+    background-color: rgba(40, 45, 55, 0.95) !important;
+    color: #fff !important;
+}
+
+#bookmarkFolderSelect option:checked {
+    background-color: rgba(66, 133, 244, 0.5) !important;
+    color: #8ab4f8 !important;
+}
+
+/* 修复设置面板中自定义搜索引擎行选择的下拉菜单 */
+#customSearchRow {
+    background-color: rgba(40, 45, 55, 0.95) !important;
+    color: #fff !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%238ab4f8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+    background-position: right 0.5rem center !important;
+    background-repeat: no-repeat !important;
+    background-size: 1.5em 1.5em !important;
+    padding-right: 2.5rem !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+#customSearchRow option {
+    background-color: rgba(40, 45, 55, 0.95) !important;
+    color: #fff !important;
+}
+
+#customSearchRow option:checked {
+    background-color: rgba(66, 133, 244, 0.5) !important;
+    color: #8ab4f8 !important;
+}
+
+/* ==================== 响应式设计 ==================== */
+
 @media (max-width: 768px) {
+    .logo-text {
+        font-size: 48px;
+    }
+    
+    .tagline {
+        font-size: 16px;
+    }
+    
+    .search-container {
+        max-width: 600px;
+    }
+    
+    .search-box {
+        height: 56px;
+        padding: 0 16px;
+    }
+    
+    .search-input {
+        font-size: 18px !important;
+        line-height: 56px !important;
+        height: 100% !important;
+    }
+    
+    .search-input::placeholder {
+        font-size: 18px !important;
+    }
+    
+    .search-icon {
+        font-size: 18px;
+        margin-right: 12px;
+    }
+    
+    .search-btn {
+        width: 46px;
+        height: 46px;
+        font-size: 18px;
+    }
+    
+    .quick-buttons, .custom-buttons-row {
+        gap: 10px;
+    }
+    
+    .quick-btn, .custom-btn {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+    
+    .settings-panel {
+        width: 320px;
+        right: -320px;
+    }
+    
+    .settings-header h3 {
+        font-size: 15px;
+    }
+    
     .bookmarks-panel {
         width: 320px;
         left: -320px;
@@ -1706,6 +1678,82 @@ input::placeholder {
 }
 
 @media (max-width: 480px) {
+    .logo-text {
+        font-size: 36px;
+    }
+    
+    .tagline {
+        font-size: 16px;
+    }
+    
+    .top-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    
+    .wallpaper-control {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .wallpaper-presets {
+        margin-top: 5px;
+    }
+    
+    .search-container {
+        max-width: 100%;
+    }
+    
+    .search-box {
+        height: 52px;
+        padding: 0 14px;
+    }
+    
+    .search-input {
+        font-size: 16px !important;
+        line-height: 52px !important;
+        height: 100% !important;
+    }
+    
+    .search-input::placeholder {
+        font-size: 16px !important;
+    }
+    
+    .search-icon {
+        font-size: 16px;
+        margin-right: 10px;
+    }
+    
+    .search-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 16px;
+        margin-left: 8px;
+    }
+    
+    .quick-buttons, .custom-buttons-row {
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .quick-btn, .custom-btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+    
+    .settings-panel {
+        width: 280px;
+        right: -280px;
+    }
+    
+    .settings-header {
+        padding: 12px 15px;
+    }
+    
+    .settings-content {
+        padding: 10px;
+    }
+    
     .bookmarks-panel {
         width: 100%;
         left: -100%;
