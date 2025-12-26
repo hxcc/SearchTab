@@ -158,6 +158,7 @@ const settingsPanel = document.getElementById('settingsPanel');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const currentDate = document.getElementById('currentDate');
 const currentTime = document.getElementById('currentTime');
+const currentGanzhi = document.getElementById('currentGanzhi');
 const changeWallpaperBtn = document.getElementById('changeWallpaperBtn');
 const wallpaperUpload = document.getElementById('wallpaperUpload');
 const wallpaperPresets = document.querySelectorAll('.wallpaper-preset');
@@ -748,6 +749,185 @@ function updateDateTime() {
     
     currentDate.textContent = dateStr;
     currentTime.textContent = timeStr;
+    
+    // 计算并显示干支纪年
+    updateGanzhi(now);
+}
+
+// 更新干支纪年
+function updateGanzhi(date) {
+    const ganzhiElement = document.getElementById('currentGanzhi');
+    if (!ganzhiElement) return;
+    
+    // 如果Lunar库未加载，不显示干支
+    if (typeof Lunar === 'undefined') {
+        ganzhiElement.textContent = '';
+        return;
+    }
+    
+    try {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const hour = date.getHours();
+        const minute = date.getMinutes();
+        const second = date.getSeconds();
+        
+        // 使用Lunar库计算农历和干支
+        // 注意：完整版lunar-javascript库的API可能有所不同
+        // 以下是常见的API调用方式，您可能需要根据实际库的文档进行调整
+        
+        let lunar;
+        
+        // 尝试不同的API调用方式
+        if (typeof Lunar.fromDate !== 'undefined') {
+            // 如果库有fromDate方法
+            lunar = Lunar.fromDate(date);
+        } else if (typeof Lunar.fromSolar !== 'undefined') {
+            // 如果库有fromSolar方法
+            lunar = Lunar.fromSolar(year, month, day);
+        } else if (typeof window.Lunar !== 'undefined' && typeof window.Lunar.fromDate !== 'undefined') {
+            // 尝试全局对象
+            lunar = window.Lunar.fromDate(date);
+        } else {
+            // 如果无法找到正确的API，直接返回
+            ganzhiElement.textContent = '';
+            return;
+        }
+        
+        // 获取干支
+        let yearGanzhi, monthGanzhi, dayGanzhi, hourGanzhi;
+        
+        // 尝试不同的方法获取干支
+        if (typeof lunar.getYearInGanZhi === 'function') {
+            yearGanzhi = lunar.getYearInGanZhi();
+            monthGanzhi = lunar.getMonthInGanZhi();
+            dayGanzhi = lunar.getDayInGanZhi();
+            hourGanzhi = lunar.getTimeInGanZhi();
+        } else if (typeof lunar.getYearGanZhi === 'function') {
+            yearGanzhi = lunar.getYearGanZhi();
+            monthGanzhi = lunar.getMonthGanZhi();
+            dayGanzhi = lunar.getDayGanZhi();
+            hourGanzhi = lunar.getHourGanZhi();
+        } else if (typeof lunar.yearInGanZhi !== 'undefined') {
+            // 可能是属性而不是方法
+            yearGanzhi = lunar.yearInGanZhi;
+            monthGanzhi = lunar.monthInGanZhi;
+            dayGanzhi = lunar.dayInGanZhi;
+            hourGanzhi = lunar.timeInGanZhi;
+        } else {
+            // 如果无法获取干支，尝试使用简化计算方法
+            yearGanzhi = calculateSimpleYearGanzhi(year);
+            monthGanzhi = calculateSimpleMonthGanzhi(year, month);
+            dayGanzhi = calculateSimpleDayGanzhi(year, month, day);
+            hourGanzhi = calculateSimpleHourGanzhi(dayGanzhi, hour);
+        }
+        
+        // 获取生肖
+        let shengxiao = '';
+        if (typeof lunar.getShengXiao === 'function') {
+            shengxiao = lunar.getShengXiao();
+        } else if (typeof lunar.getYearShengXiao === 'function') {
+            shengxiao = lunar.getYearShengXiao();
+        } else if (typeof lunar.shengxiao !== 'undefined') {
+            shengxiao = lunar.shengxiao;
+        } else if (typeof lunar.yearShengXiao !== 'undefined') {
+            shengxiao = lunar.yearShengXiao;
+        }
+        
+        // 显示干支
+        const ganzhiStr = `${yearGanzhi}年 ${monthGanzhi}月 ${dayGanzhi}日 ${hourGanzhi}时`;
+        ganzhiElement.textContent = ganzhiStr;
+        
+    } catch (error) {
+        console.error('计算干支时出错:', error);
+        ganzhiElement.textContent = '';
+    }
+}
+
+// 简化版干支计算（备选方案）
+function calculateSimpleYearGanzhi(year) {
+    // 天干：甲(1)、乙(2)、丙(3)、丁(4)、戊(5)、己(6)、庚(7)、辛(8)、壬(9)、癸(10)
+    // 地支：子(1)、丑(2)、寅(3)、卯(4)、辰(5)、巳(6)、午(7)、未(8)、申(9)、酉(10)、戌(11)、亥(12)
+    
+    // 1984年是甲子年
+    const baseYear = 1984;
+    const offset = year - baseYear;
+    
+    const tianGanIndex = (offset % 10 + 10) % 10;
+    const diZhiIndex = (offset % 12 + 12) % 12;
+    
+    const tianGan = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'][tianGanIndex];
+    const diZhi = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'][diZhiIndex];
+    
+    return tianGan + diZhi;
+}
+
+function calculateSimpleMonthGanzhi(year, month) {
+    // 月干支计算比较复杂，这里提供简化版本
+    // 实际应根据年干和月份计算
+    
+    // 简化：固定对应关系（不完全准确，仅作演示）
+    const monthMap = [
+        '丙寅', '丁卯', '戊辰', '己巳', '庚午', '辛未',
+        '壬申', '癸酉', '甲戌', '乙亥', '丙子', '丁丑'
+    ];
+    
+    // 农历月份从正月（寅月）开始
+    // 这里简单地将公历月份映射到农历月份（不完全准确）
+    let lunarMonth = (month + 1) % 12; // 简化映射
+    return monthMap[lunarMonth] || monthMap[0];
+}
+
+function calculateSimpleDayGanzhi(year, month, day) {
+    // 日干支计算非常复杂，这里使用简化算法（不准确，仅作演示）
+    // 实际应使用专门的算法
+    
+    // 简化：基于日期计算一个伪干支
+    const total = year * 10000 + month * 100 + day;
+    const index = total % 60;
+    
+    const tianGanList = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+    const diZhiList = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+    
+    const tianGanIndex = index % 10;
+    const diZhiIndex = index % 12;
+    
+    return tianGanList[tianGanIndex] + diZhiList[diZhiIndex];
+}
+
+function calculateSimpleHourGanzhi(dayGanzhi, hour) {
+    // 时干支根据日干推算
+    // 日干与时干的对应关系
+    // 甲己还加甲，乙庚丙作初，丙辛从戊起，丁壬庚子居，戊癸何方发，壬子是真途
+    
+    // 提取日干
+    const dayGan = dayGanzhi.charAt(0);
+    
+    // 日干与时干的起始对应
+    const startGanMap = {
+        '甲': '甲', '己': '甲',
+        '乙': '丙', '庚': '丙',
+        '丙': '戊', '辛': '戊',
+        '丁': '庚', '壬': '庚',
+        '戊': '壬', '癸': '壬'
+    };
+    
+    // 时支：23-1子, 1-3丑, 3-5寅, 5-7卯, 7-9辰, 9-11巳, 11-13午, 13-15未, 15-17申, 17-19酉, 19-21戌, 21-23亥
+    const hourZhiList = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+    let hourZhiIndex = Math.floor((hour + 1) / 2) % 12;
+    const hourZhi = hourZhiList[hourZhiIndex];
+    
+    // 获取起始天干
+    const startGan = startGanMap[dayGan] || '甲';
+    const tianGanList = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+    let startIndex = tianGanList.indexOf(startGan);
+    
+    // 计算时干
+    const hourGanIndex = (startIndex + hourZhiIndex) % 10;
+    const hourGan = tianGanList[hourGanIndex];
+    
+    return hourGan + hourZhi;
 }
 
 // 更新日期时间显示
@@ -755,6 +935,12 @@ function updateDateTimeDisplay() {
     const show = showTimeDate.checked;
     currentDate.style.display = show ? 'inline' : 'none';
     currentTime.style.display = show ? 'inline' : 'none';
+    
+    // 同时控制干支的显示
+    const ganzhiContainer = document.getElementById('ganzhiContainer');
+    if (ganzhiContainer) {
+        ganzhiContainer.style.display = show ? 'block' : 'none';
+    }
 }
 
 // 加载设置

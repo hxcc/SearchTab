@@ -420,11 +420,12 @@ body {
     background: rgba(255, 0, 0, 0.6);
 }
 
+/* 修改后的样式 */
 .footer {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 5px; /* 减少间距，使干支更靠近日期时间 */
     padding: 20px 0;
 }
 
@@ -434,6 +435,70 @@ body {
     display: flex;
     gap: 10px;
     align-items: center;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* 添加干支纪样式 - 与上面的日期时间保持一致 */
+.footer-ganzhi {
+    color: rgba(255, 255, 255, 0.7); /* 与日期时间相同的颜色 */
+    font-size: 14px; /* 与日期时间相同的字体大小 */
+    text-align: center;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3); /* 添加与日期时间相同的文字阴影 */
+    font-weight: 300; /* 与日期时间相同的字体粗细 */
+}
+
+/* 如果希望干支纪的颜色更亮一些，可以这样调整 */
+#currentGanzhi {
+    color: rgba(255, 255, 255, 0.8); /* 稍微亮一点，但不要完全白色 */
+}
+
+/* 在响应式设计中调整样式 */
+@media (max-width: 768px) {
+    .footer-info {
+        font-size: 13px;
+    }
+    
+    .footer-ganzhi {
+        font-size: 13px; /* 与日期时间保持一致 */
+    }
+}
+
+@media (max-width: 480px) {
+    .footer {
+        gap: 3px; /* 进一步减少间距 */
+    }
+    
+    .footer-info {
+        flex-direction: column;
+        gap: 2px;
+        font-size: 12px;
+    }
+    
+    .footer-ganzhi {
+        font-size: 12px; /* 与日期时间保持一致 */
+    }
+}
+
+/* 在响应式设计中调整样式 */
+@media (max-width: 768px) {
+    .footer-ganzhi {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .footer {
+        gap: 3px;
+    }
+    
+    .footer-ganzhi {
+        font-size: 12px;
+    }
+    
+    .footer-info {
+        flex-direction: column;
+        gap: 2px;
+    }
 }
 
 /* ==================== 设置面板 ==================== */
